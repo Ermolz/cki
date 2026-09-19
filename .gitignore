@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.verification/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.huf
+*.sfc
+*.restored
+**/input.txt
