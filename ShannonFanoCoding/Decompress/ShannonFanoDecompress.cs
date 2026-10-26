@@ -37,15 +37,25 @@ internal static class Program
                 output.Write(restored);
             }
 
-            Console.WriteLine($"Восстановленный файл: {Path.GetFullPath(args[1])}");
-            Console.WriteLine($"Восстановлено: {restored.Length} байт.");
+            Console.WriteLine($"Saved: {args[1]}");
             return 0;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                           or ArgumentException or NotSupportedException
                                           or InvalidDataException or FormatException or OverflowException)
         {
-            Console.Error.WriteLine($"Ошибка: {exception.Message}");
+            Console.Error.WriteLine(exception switch
+            {
+                FileNotFoundException => "Error: file not found.",
+                DirectoryNotFoundException => "Error: directory not found.",
+                UnauthorizedAccessException => "Error: access denied.",
+                InvalidDataException or EndOfStreamException => "Error: invalid archive.",
+                DecoderFallbackException => "Error: invalid UTF-8.",
+                FormatException => "Error: invalid Base64.",
+                IOException => "Error: file I/O failed.",
+                OverflowException => "Error: size limit exceeded.",
+                _ => "Error: invalid argument."
+            });
             return 1;
         }
     }
@@ -57,7 +67,7 @@ internal static class Program
 
         if (!reader.ReadBytes(Magic.Length).AsSpan().SequenceEqual(Magic))
         {
-            throw new InvalidDataException("Это не архив формата SFC1.");
+            throw new InvalidDataException("Invalid SFC1 archive.");
         }
 
         long originalLength = reader.ReadInt64();
@@ -66,7 +76,7 @@ internal static class Program
 
         if (originalLength < 0 || originalLength > Array.MaxLength || bitCount < 0 || symbolCount > 256)
         {
-            throw new InvalidDataException("Некорректный заголовок архива или неподдерживаемый размер файла.");
+            throw new InvalidDataException("Invalid archive header or unsupported file size.");
         }
 
         long[] frequencies = new long[256];
@@ -80,7 +90,7 @@ internal static class Program
 
             if (symbol <= previousSymbol || frequency <= 0 || frequency > originalLength - totalFrequency)
             {
-                throw new InvalidDataException("Некорректная таблица частот.");
+                throw new InvalidDataException("Invalid frequency table.");
             }
 
             frequencies[symbol] = frequency;
@@ -90,7 +100,7 @@ internal static class Program
 
         if (totalFrequency != originalLength)
         {
-            throw new InvalidDataException("Сумма частот не совпадает с исходным размером.");
+            throw new InvalidDataException("Frequency sum does not match the original size.");
         }
 
         Node? root = BuildTree(frequencies);
@@ -98,14 +108,14 @@ internal static class Program
 
         if (bitCount != expectedBitCount)
         {
-            throw new InvalidDataException("Число битов не соответствует таблице частот.");
+            throw new InvalidDataException("Bit count does not match the frequency table.");
         }
 
         long payloadSize = (bitCount + 7) / 8;
 
         if (stream.Length - stream.Position != payloadSize)
         {
-            throw new InvalidDataException("Данные архива обрезаны или содержат лишние байты.");
+            throw new InvalidDataException("Invalid payload length.");
         }
 
         int payloadOffset = (int)stream.Position;
@@ -113,7 +123,7 @@ internal static class Program
 
         if (payloadSize > 0 && (archive[^1] & ((1 << paddingBits) - 1)) != 0)
         {
-            throw new InvalidDataException("Некорректные дополняющие биты последнего байта.");
+            throw new InvalidDataException("Invalid padding bits.");
         }
 
         byte[] result = new byte[(int)originalLength];
@@ -129,7 +139,7 @@ internal static class Program
             {
                 if (archive[index] != 0)
                 {
-                    throw new InvalidDataException("Некорректный код единственного символа.");
+                    throw new InvalidDataException("Invalid single-symbol code.");
                 }
             }
 
@@ -154,7 +164,7 @@ internal static class Program
 
             if (outputPosition >= result.Length || remainingFrequencies[symbol] == 0)
             {
-                throw new InvalidDataException("Декодированные символы не соответствуют таблице частот.");
+                throw new InvalidDataException("Decoded bytes do not match the frequency table.");
             }
 
             result[outputPosition++] = (byte)symbol;
@@ -165,7 +175,7 @@ internal static class Program
         if (!ReferenceEquals(current, root) || outputPosition != result.Length
             || remainingFrequencies.Any(frequency => frequency != 0))
         {
-            throw new InvalidDataException("Битовая последовательность не содержит полный исходный файл.");
+            throw new InvalidDataException("Incomplete encoded data.");
         }
 
         return result;
@@ -230,11 +240,12 @@ internal static class Program
 
     private static void PrintUsage()
     {
-        Console.Error.WriteLine("Восстановление файла: ShannonFanoDecompress <файл.sfc> <новый выходной файл>");
-        Console.Error.WriteLine("Восстановление строки: ShannonFanoDecompress --text \"Base64\"");
-        Console.Error.WriteLine("Для строки результат выводится как UTF-8. Существующий выходной файл не перезаписывается.");
+        Console.Error.WriteLine("Usage: ShannonFanoDecompress <input.sfc> <output>");
+        Console.Error.WriteLine("   or: ShannonFanoDecompress --text <Base64>");
     }
 
     private sealed record Node(long Frequency, int? Symbol,
                                Node? Left = null, Node? Right = null);
 }
+
+// dotnet run --project .\ShannonFanoCoding\Decompress\ShannonFanoDecompress.csproj -c Release -- .\ShannonFanoCoding\compressed.sfc .\ShannonFanoCoding\restored.txt

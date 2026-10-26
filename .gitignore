@@ -1,12 +1,46 @@
+# Build and verification output
 **/bin/
 **/obj/
 **/.verification/
+**/TestResults/
+*.coverage
+*.coveragexml
+
+# Editor and operating-system files
 .vs/
 .vscode/
 .idea/
 *.user
 *.suo
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Generated archives, encoded data, and restored files
 *.huf
 *.sfc
+*.arc
+*.lz78
+*.ham
+*.ham.txt
 *.restored
 **/input.txt
+**/restored*.txt
+**/corrected*.txt
+**/rejected*.txt
+**/lz78-kr-report*.txt
+*.zip
+*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+!.env.template
+.agents/
+.codex/
+.aws/
+AGENTS.md
+AGENTS.local.md

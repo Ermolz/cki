@@ -38,14 +38,21 @@ internal static class Program
                 output.Write(compressed);
             }
 
-            Console.WriteLine($"Сжатый файл: {Path.GetFullPath(args[1])}");
-            Console.WriteLine($"Исходный размер: {input.Length} байт. Размер архива: {compressed.Length} байт.");
+            Console.WriteLine($"Saved: {args[1]}");
             return 0;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                           or ArgumentException or NotSupportedException or OverflowException)
         {
-            Console.Error.WriteLine($"Ошибка: {exception.Message}");
+            Console.Error.WriteLine(exception switch
+            {
+                FileNotFoundException => "Error: file not found.",
+                DirectoryNotFoundException => "Error: directory not found.",
+                UnauthorizedAccessException => "Error: access denied.",
+                IOException => "Error: file I/O failed.",
+                OverflowException => "Error: size limit exceeded.",
+                _ => "Error: invalid argument."
+            });
             return 1;
         }
     }
@@ -86,7 +93,7 @@ internal static class Program
 
         if (archiveSize > Array.MaxLength)
         {
-            throw new IOException("Результат слишком большой для обработки в памяти.");
+            throw new IOException("Archive is too large for in-memory processing.");
         }
 
         using MemoryStream stream = new((int)archiveSize);
@@ -198,11 +205,12 @@ internal static class Program
 
     private static void PrintUsage()
     {
-        Console.Error.WriteLine("Сжатие файла: ShannonFanoCompress <входной файл> <новый файл.sfc>");
-        Console.Error.WriteLine("Сжатие строки: ShannonFanoCompress --text \"строка\"");
-        Console.Error.WriteLine("Для строки результат выводится в Base64. Существующий выходной файл не перезаписывается.");
+        Console.Error.WriteLine("Usage: ShannonFanoCompress <input> <output.sfc>");
+        Console.Error.WriteLine("   or: ShannonFanoCompress --text <text>");
     }
 
     private sealed record Node(long Frequency, int? Symbol,
                                Node? Left = null, Node? Right = null);
 }
+
+// dotnet run --project .\ShannonFanoCoding\Compress\ShannonFanoCompress.csproj -c Release -- .\input.txt .\ShannonFanoCoding\compressed.sfc

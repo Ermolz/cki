@@ -191,3 +191,5 @@ internal static class Program
     private sealed record Node(long Frequency, int MinimumSymbol, int? Symbol,
                                Node? Left = null, Node? Right = null);
 }
+
+// dotnet run --project Compress/HuffmanCompress.csproj -c Release --no-build -- input.txt compressed.huf
